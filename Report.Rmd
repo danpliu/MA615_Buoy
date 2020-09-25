@@ -58,7 +58,7 @@ MRmonth <- data.frame(nameMonths, coefAPerYear, coefWPerYear)
 kable(MRmonth, col.names=c("Month", 
                            "Monthly air temperature change every year in celcius degrees", 
                            "Monthly water temperature change every year in celcius degrees"))
-plotFit <- ggplot(data=MRsub)+
+plotMonth <- ggplot(data=MRsub)+
   geom_point(aes(x=DATE,y=ATMP),alpha=0.1,color="black")+
   geom_point(aes(x=DATE,y=WTMP),alpha=0.1, color = "#56B4E9")+
   geom_smooth(aes(x=DATE,y=ATMP,color="Air"),method="lm", formula="y~x")+
@@ -69,7 +69,7 @@ plotFit <- ggplot(data=MRsub)+
   ylab("Tempurature")+
   theme(axis.text.x = element_blank())+
   facet_wrap(~factor(MM))
-plotFit
+plotMonth
 ```
 
 The coefficients of the linear regression models show the variation of monthly average air temperature and water temperature from 1987 to 2016. 
