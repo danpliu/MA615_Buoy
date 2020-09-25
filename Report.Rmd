@@ -26,7 +26,8 @@ The data we use is NOAA's Boston's air and water temperature from 1987 to 2016. 
 load("MR.Rdata")
 # Remove NA values
 `%notin%` <- Negate(`%in%`)
-MRsub <- filter(MR, ATMP%notin%c(999,99,"999","99","999.0","99.0") & WTMP%notin%c(999,99,"999","99","999.0","99.0") & hh=="12")
+MRsub <- filter(MR, ATMP%notin%c(999,99,"999","99","999.0","99.0") &
+                  WTMP%notin%c(999,99,"999","99","999.0","99.0") & hh=="12")
 # Convert string values to double
 MRsub$ATMP <- as.double(MRsub$ATMP)
 MRsub$WTMP <- as.double(MRsub$WTMP)
@@ -41,7 +42,8 @@ MRsub$YYYY <- as.double(MRsub$YYYY)
 Since the temperature varies during different months, we decide to build linear regression models for each month respectively and for annual average. For better understanding, we make a table presenting how monthly air temperature and water temperature is changing from year to year. We also make plots of temperature versus time for every month. 
 ```{r}
 numMonths <- levels(factor(MRsub$MM))
-nameMonths <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+nameMonths <- c("January", "February", "March", "April", "May", "June", "July", "August",
+                "September", "October", "November", "December")
 fitA_list <- list()
 fitW_list <- list()
 coefAPerYear <- list()
