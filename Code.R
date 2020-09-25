@@ -20,8 +20,6 @@ MRsub$DATE <- unclass(MRsub$TIME)
 MRsub$YYYY <- as.double(MRsub$YYYY)
 
 # Monthly
-Since the temperature varies during different months, we decide to build linear regression models for each month respectively and for annual average. For better understanding, we make a table presenting how monthly air temperature and water temperature is changing from year to year. We also make plots of temperature versus time for every month. 
-```{r}
 numMonths <- levels(factor(MRsub$MM))
 nameMonths <- c("January", "February", "March", "April", "May", "June", "July", "August",
                 "September", "October", "November", "December")
@@ -39,7 +37,7 @@ MRmonth <- data.frame(nameMonths, coefAPerYear, coefWPerYear)
 kable(MRmonth, col.names=c("Month", 
                            "Monthly air temperature change every year in celcius degrees", 
                            "Monthly water temperature change every year in celcius degrees"))
-plotFit <- ggplot(data=MRsub)+
+plotMonth <- ggplot(data=MRsub)+
   geom_point(aes(x=DATE,y=ATMP),alpha=0.1,color="black")+
   geom_point(aes(x=DATE,y=WTMP),alpha=0.1, color = "#56B4E9")+
   geom_smooth(aes(x=DATE,y=ATMP,color="Air"),method="lm", formula="y~x")+
@@ -50,7 +48,8 @@ plotFit <- ggplot(data=MRsub)+
   ylab("Tempurature")+
   theme(axis.text.x = element_blank())+
   facet_wrap(~factor(MM))
-plotFit
+ggsave("plotMonth.jpg", plot=plotMonth)
+plotMonth
 
 # Anuual
 avg <- MRsub%>%group_by(YYYY)%>%summarize(meanATMP = mean(ATMP), meanWTMP = mean(WTMP))
@@ -63,6 +62,7 @@ plotAnnualAvg <- ggplot(data=avg)+
   ggtitle("Average Annual Temperature vs. Year")+
   xlab("Year")+
   ylab("Annual Average Tempurature")
+ggsave("plotAnnualAvg.jpg", plot=plotAnnualAvg)
 plotAnnualAvg
 fitA_annual <- lm(meanATMP~YYYY, data=avg)
 fitW_annual <- lm(meanWTMP~YYYY, data=avg)
