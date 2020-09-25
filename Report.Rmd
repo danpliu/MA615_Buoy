@@ -154,4 +154,14 @@ NASA. (2018, September 21). *Climate change evidence: How do we know?* Climate C
 
 Gibbens, S. (2019, January 23). *Why cold weather doesn’t mean climate change is fake*. National Geographic. https://www.nationalgeographic.com/environment/2019/01/climate-change-colder-winters-global-warming-polar-vortex/
 
+```{r}
+citation("knitr")
+citation("tidyverse")
+citation("stringr")
+citation("lubridate")
+citation("dplyr")
+citation("ggplot2")
+citation("gridExtra")
+```
+
 
