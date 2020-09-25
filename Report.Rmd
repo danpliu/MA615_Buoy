@@ -10,6 +10,8 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(knitr)
+library(tidyverse)
+library(stringr)
 library(lubridate)
 library(dplyr)
 library(ggplot2)
@@ -21,27 +23,62 @@ The objective for this project is to find the evidence for global warming. From 
 Firstly, we import the data we are going use to R. Secondly, we build linear regression models for to check how the monthly temperature change.Thirdly, we build linear regression models to check how the annual average temperature change. Lastly, we make conclusion based on the two aspects above. 
 
 ### Import data
-The data we use is NOAA's Boston's air and water temperature from 1987 to 2016. There are 246245 observations in total. For better comparison, we remove the NA values and use the temperature at 12pm everyday. As a result, we have 10146 observations for analyzing. The year, month, day, hour, air temperature and water temperature are stored in the data frame as string. For later analyzing, we change the data types for air and water temperature to double. We create a new TIME column combining the year, month, day and hour columns into POXISct form. However, POXISct data cannot join the regression fitting, so we unclass it to get a double type variable representing the number of seconds from 00:00:00 January 1, 1970. 
+The data we use is NOAA's Boston's air and water temperature from 1987 to 2016. There are 246245 observations in total. The website's data is grouped by year. Some years' data has different number of columns and different format of year. For the year column, we make all year data into four digits. Since we only need year, month, day, hour, air temperature and water temperature here, we can remove the columns that some data does not have. 
+```{r eval=FALSE}
+###Make URLs and read Data
+##Make URLs
+url1="http://www.ndbc.noaa.gov/view_text_file.php?filename=mlrf1h"
+url2=".txt.gz&dir=data/historical/stdmet/"
+years=c(1987:2016)
+urls=paste0(url1,years,url2)
+Dnames=paste0('D',years)
+##Read the data from the URLs
+for(i in years) assign(Dnames[i-years[1]+1],read_table2(urls[i-years[1]+1]))
+coln=colnames(get(Dnames[1]))
+
+###Combine the data into a frame
+for(i in years){
+  D=get(Dnames[i-years[1]+1])
+  ##From Y2000 to Y2016, delete an additional variable of 'TIDE'
+  if(i %in% 2000:2016){D=select(D,-TIDE)}
+  ##From Y2005 to Y2016, delete an additional variable of 'mm'
+  if(i %in% 2005:2016){D=select(D,-mm)}
+  ##From Y2007 to Y2016, delete first row of units
+  if(i %in% 2007:2016){D=D[-1,]}
+  ##Check and unify col names and set data type as 'numeric'
+  if(ncol(D)==length(coln)){colnames(D)=coln}
+  D=sapply(D, as.numeric)
+  ##From Y1987 to Y1999, transfer the Year from 'XX' to '19XX'
+  D[,1][D[,1]<100]=D[,1][D[,1]<100]+1900
+  ##Create and combine to form final data set Buoy
+  if(i==years[1]){Buoy=D}
+  else{Buoy=rbind.data.frame(Buoy,D)}
+}
+
+###Save data
+save(Buoy,file='Buoy.Rdata')
+```
+For better comparison, we remove the NA values and use the temperature at 12pm everyday. As a result, we have 7069 observations for analyzing. The year, month, day, hour, air temperature and water temperature are stored in the data frame as string. For later analyzing, we change the data types for air and water temperature to double. We create a new TIME column combining the year, month, day and hour columns into POXISct form. However, POXISct data cannot join the regression fitting, so we unclass it to get a double type variable representing the number of seconds from 00:00:00 January 1, 1970. 
 ```{r}
-load("MR.Rdata")
+load("Buoy.Rdata")
 # Remove NA values
 `%notin%` <- Negate(`%in%`)
-MRsub <- filter(MR, ATMP%notin%c(999,99,"999","99","999.0","99.0") &
+Buoysub <- filter(Buoy, ATMP%notin%c(999,99,"999","99","999.0","99.0") &
                   WTMP%notin%c(999,99,"999","99","999.0","99.0") & hh=="12")
 # Convert string values to double
-MRsub$ATMP <- as.double(MRsub$ATMP)
-MRsub$WTMP <- as.double(MRsub$WTMP)
-# Convert YYYY, MM, DD and hh to POSIXct and then to seconds from 1970/1/1
-buoyTimeStr <- paste(MRsub$YYYY, MRsub$MM, MRsub$DD, MRsub$hh, sep="-")
-MRsub$TIME <- ymd_h(buoyTimeStr)
-MRsub$DATE <- unclass(MRsub$TIME)
-MRsub$YYYY <- as.double(MRsub$YYYY)
+Buoysub$ATMP <- as.double(Buoysub$ATMP)
+Buoysub$WTMP <- as.double(Buoysub$WTMP)
+# Convert YY, MM, DD and hh to POSIXct and then to seconds from 1970/1/1
+buoyTimeStr <- paste(Buoysub$YY, Buoysub$MM, Buoysub$DD, Buoysub$hh, sep="-")
+Buoysub$TIME <- ymd_h(buoyTimeStr)
+Buoysub$DATE <- unclass(Buoysub$TIME)
+Buoysub$YY <- as.double(Buoysub$YY)
 ```
 
 ### Monthly temperature change
 Since the temperature varies during different months, we decide to build linear regression models for each month respectively and for annual average. For better understanding, we make a table presenting how monthly air temperature and water temperature is changing from year to year. We also make plots of temperature versus time for every month. 
 ```{r}
-numMonths <- levels(factor(MRsub$MM))
+numMonths <- levels(factor(Buoysub$MM))
 nameMonths <- c("January", "February", "March", "April", "May", "June", "July", "August",
                 "September", "October", "November", "December")
 fitA_list <- list()
@@ -49,16 +86,16 @@ fitW_list <- list()
 coefAPerYear <- list()
 coefWPerYear <- list()
 for(i in 1:12){
-  fitA_list[[i]] <- lm(ATMP~DATE, data=MRsub[MRsub$MM==numMonths[i],])
-  fitW_list[[i]] <- lm(WTMP~DATE, data=MRsub[MRsub$MM==numMonths[i],])
+  fitA_list[[i]] <- lm(ATMP~DATE, data=Buoysub[Buoysub$MM==numMonths[i],])
+  fitW_list[[i]] <- lm(WTMP~DATE, data=Buoysub[Buoysub$MM==numMonths[i],])
   coefAPerYear <- 60*60*24*365*coef(fitA_list[[i]])[2]
   coefWPerYear <- 60*60*24*365*coef(fitW_list[[i]])[2]
 }
-MRmonth <- data.frame(nameMonths, coefAPerYear, coefWPerYear)
-kable(MRmonth, col.names=c("Month", 
+Buoymonth <- data.frame(nameMonths, coefAPerYear, coefWPerYear)
+kable(Buoymonth, col.names=c("Month", 
                            "Monthly air temperature change every year in celcius degrees", 
                            "Monthly water temperature change every year in celcius degrees"))
-plotMonth <- ggplot(data=MRsub)+
+plotMonth <- ggplot(data=Buoysub)+
   geom_point(aes(x=DATE,y=ATMP),alpha=0.1,color="black")+
   geom_point(aes(x=DATE,y=WTMP),alpha=0.1, color = "#56B4E9")+
   geom_smooth(aes(x=DATE,y=ATMP,color="Air"),method="lm", formula="y~x")+
@@ -69,6 +106,7 @@ plotMonth <- ggplot(data=MRsub)+
   ylab("Tempurature")+
   theme(axis.text.x = element_blank())+
   facet_wrap(~factor(MM))
+ggsave("plotMonth.jpg", plot=plotMonth)
 plotMonth
 ```
 
@@ -83,25 +121,27 @@ According to National Geographic's artical *Why cold weather doesn't mean climat
 ### Average annual temperature change
 We found that temperature decreases in some months. In this step, we are going to find out if it would make a difference to the annual average temperature. Similar as the last step, we are going to plot an average annual temperature versus year graph for visualization. 
 ```{r}
-avg <- MRsub%>%group_by(YYYY)%>%summarize(meanATMP = mean(ATMP), meanWTMP = mean(WTMP))
+avg <- Buoysub%>%group_by(YY)%>%summarize(meanATMP = mean(ATMP), meanWTMP = mean(WTMP))
 plotAnnualAvg <- ggplot(data=avg)+
-  geom_point(aes(x=YYYY, y=meanATMP), alpha=0.3, color="black")+
-  geom_point(aes(x=YYYY, y=meanWTMP), alpha=0.3, color="#56B4E9")+
-  geom_smooth(aes(x=YYYY,y=meanATMP,color="Air"),method="lm", formula="y~x")+
-  geom_smooth(aes(x=YYYY,y=meanWTMP,color="Water"),method="lm", formula="y~x")+
+  geom_point(aes(x=YY, y=meanATMP), alpha=0.3, color="black")+
+  geom_point(aes(x=YY, y=meanWTMP), alpha=0.3, color="#56B4E9")+
+  geom_smooth(aes(x=YY,y=meanATMP,color="Air"),method="lm", formula="y~x")+
+  geom_smooth(aes(x=YY,y=meanWTMP,color="Water"),method="lm", formula="y~x")+
   scale_color_manual("",breaks=c("Air","Water"),values=c("black","blue"))+
   ggtitle("Average Annual Temperature vs. Year")+
   xlab("Year")+
   ylab("Annual Average Tempurature")
+ggsave("plotAnnualAvg.jpg", plot=plotAnnualAvg)
 plotAnnualAvg
-fitA_annual <- lm(meanATMP~YYYY, data=avg)
-fitW_annual <- lm(meanWTMP~YYYY, data=avg)
+fitA_annual <- lm(meanATMP~YY, data=avg)
+fitW_annual <- lm(meanWTMP~YY, data=avg)
 cat(paste0("By average, the annual average air temperature increases ",
-          as.character(coef(fitA_annual)[2]), 
-          " celcius degrees \nand the annual average water temperature increases ",
-          as.character(coef(fitW_annual)[2]), 
-          " celcius degrees every year. ", 
-          sep=""))
+           as.character(coef(fitA_annual)[2]), 
+           " celcius degrees \nand the annual average water temperature increases ",
+           as.character(coef(fitW_annual)[2]), 
+           " celcius degrees every year. ", 
+           sep=""))
+
 ```
 
 The graph and the coefficient of the linear regression line show that even though temperature decreases in some months, both the air temperature and water temperature is getting warmer in general. The annual average temperatures in 1987, 2010, 2015 and 2016 are also noticeable because of the large difference comparing to the others, which indicates the occurrence of extreme climate. The abrupt change from 2015 to 2016 further demonstrates the unusual climate change. 
